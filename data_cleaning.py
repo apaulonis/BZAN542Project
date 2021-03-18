@@ -10,7 +10,7 @@ for col in singleelements:
 df.loc[df['unknown'].isna(), 'unknown'] = ['']
 df.loc[df['unknown'].notna(), ['unknown1','unknown2']] = pd.DataFrame(df.loc[df['unknown'].notna(),'unknown'].tolist(), index= df.index)
 
-df['text']=df['text'].replace(r'\n', '', regex=True)
+df['text']=df['text'].replace({r'\s+$': '', r'^\s+': ''}, regex=True).replace(r'\n', '', regex=True)
 
 df.drop('unknown', axis= 1, inplace= True)
 
