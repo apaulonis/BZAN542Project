@@ -29,9 +29,6 @@ singleelements = ['date', 'topics', 'places', 'people', 'orgs', 'exchanges', 'co
 for col in singleelements:
     df[col] = df[col].explode()
 
-df.loc[df['unknown'].isna(), 'unknown'] = ['']
-df.loc[df['unknown'].notna(), ['unknown1','unknown2']] = pd.DataFrame(df.loc[df['unknown'].notna(),'unknown'].tolist(), index= df.index)
-
 df['text']=df['text'].replace({r'\s+$': '', r'^\s+': ''}, regex=True).replace(r'\n', '', regex=True)
 
 df.drop('unknown', axis= 1, inplace= True)
@@ -52,3 +49,5 @@ for col in change_cols:
         df.at[row_index, col] = new_row
         row_index += 1
     col_index += 1
+
+df.to_json('clean_data.json')
