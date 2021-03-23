@@ -29,7 +29,7 @@ singleelements = ['date', 'topics', 'places', 'people', 'orgs', 'exchanges', 'co
 for col in singleelements:
     df[col] = df[col].explode()
 
-df['text']=df['text'].replace({r'\s+$': '', r'^\s+': ''}, regex=True).replace(r'\n', '', regex=True)
+df['text']=df['text'].replace({r'\s+$': '', r'^\s+': ''}, regex=True).replace(r'\n', ' ', regex=True)
 
 df.drop('unknown', axis= 1, inplace= True)
 
