@@ -42,3 +42,8 @@ from nltk.stem import PorterStemmer
 ps = PorterStemmer()
 ps.stem('jumping'), ps.stem('jumps'), ps.stem('jumped')
 ps.stem('lying')
+
+# Lemmatizing
+from nltk.stem import WordNetLemmatizer
+wnl = WordNetLemmatizer()
+print(wnl.lemmatize('ate','v'))
