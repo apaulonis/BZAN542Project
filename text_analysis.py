@@ -24,3 +24,15 @@ default_wt = nltk.word_tokenize
 words = default_wt(sentence)
 words
 
+# Tokening words by sentence
+corpus = ["The brown fox wasn't that quick and he couldn't win the race",
+"Hey that's a great deal! I just bought a phone for $199",
+"@@You'll (learn) a **lot** in the book. Python is an amazing language !@@"]
+
+def tokenize_text(text):
+    sentences = nltk.sent_tokenize(text)
+    word_tokens = [nltk.word_tokenize(sentence) for sentence in sentences]
+    return word_tokens
+
+token_list = [tokenize_text(text) for text in corpus]
+token_list
