@@ -17,3 +17,10 @@ sample_sentences = default_st(text=sample_text)
 alice_sentences = default_st(text=alice)
 len(sample_sentences)
 len(alice_sentences)
+
+# Word tokenize
+sentence = "The brown fox wasn't that quick and he couldn't win the race"
+default_wt = nltk.word_tokenize
+words = default_wt(sentence)
+words
+
