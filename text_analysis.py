@@ -36,3 +36,9 @@ def tokenize_text(text):
 
 token_list = [tokenize_text(text) for text in corpus]
 token_list
+
+# Stemming
+from nltk.stem import PorterStemmer
+ps = PorterStemmer()
+ps.stem('jumping'), ps.stem('jumps'), ps.stem('jumped')
+ps.stem('lying')
