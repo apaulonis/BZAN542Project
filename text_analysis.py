@@ -1,5 +1,7 @@
 import nltk
 from nltk.corpus import gutenberg
+
+# Sample text to work with
 alice = gutenberg.raw(fileids='carroll-alice.txt')
 sample_text = '''We will discuss briefly about the basic syntax, structure and
 design philosophies. There is a defined hierarchical syntax for Python code
@@ -8,3 +10,10 @@ programming language!'''
 
 len(sample_text)
 len(alice)
+
+# Sentence length of sample text
+default_st = nltk.sent_tokenize
+sample_sentences = default_st(text=sample_text)
+alice_sentences = default_st(text=alice)
+len(sample_sentences)
+len(alice_sentences)
