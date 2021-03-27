@@ -6,7 +6,7 @@ import random
 
 
 df = pd.read_json('clean_data.json')
-#df.info()
+df.info()
 
 """
 This part generates a dictionary used to index the topics we have into the 6 broad categories listed in
@@ -65,6 +65,7 @@ subtopics = {'money': s_money_forex,
             'commodity': s_commodity,
             'energy': s_energy}
 
+subtopics
 
 ### Assign labels
 lookup= dict()
@@ -77,7 +78,6 @@ for el in df['topics']:
     if len(el) == 0:
         n_at_max.append(0)
         all_topics.append(pd.NA)
-        leading_topic.append(pd.NA)
         continue
 
     for key in subtopics:
@@ -117,6 +117,7 @@ df_labeled = df[df['topic_label'].notna()].reset_index(drop=True)
 #reordering columns
 df_labeled = df_labeled[['newid', 'date', 'topic_label', 'topics', 'places', 'people', 'orgs', 'exchanges','companies', 'title', 'dateline', 'text', 'author' ]]
 
+df_labeled.info()
 #Adding Data
 df_labeled.to_json("labeled_data.json")
 
