@@ -1,7 +1,7 @@
 
 from re import T
 import pandas as pd
-import plotly.express as px
+#import plotly.express as px
 import random
 
 
@@ -60,16 +60,16 @@ len(all_topics)
 len(n_at_max)
 
 #Plots the distribution.
-fig = px.histogram(n_at_max)
-fig.show()
+#fig = px.histogram(n_at_max)
+#fig.show()
 
 #10,238- None; 10,856- 1 Label
 #432- 2 way ties; 29- 3 way ties; 1- 4 way ties; 22- 6 way ties
 
+
 """
 Randomly select subtopic for ties in classification
 """
-
 selected_topics = []
 for i in range(len(all_topics)):
     if n_at_max[i] == 0:
@@ -85,15 +85,16 @@ for i in range(len(all_topics)):
 
 selected_topics_series = pd.Series(selected_topics)
 
-fig = px.histogram(x=selected_topics_series.dropna() )
-fig.show()
+#fig = px.histogram(x=selected_topics_series.dropna() )
+#fig.show()
 
+#Create labels
 df['topic_label'] = selected_topics_series
-df['topic_label']
-
+#create labeled dataframe
 df_labeled = df[df['topic_label'].notna()].reset_index(drop=True)
 
-df_labeled.to_json("labeled_data.json")
-
 #reordering columns
-df_labeled[['newid', 'date', 'topic_label', 'topics', 'places', 'people', 'orgs', 'exchanges','companies', 'title', 'dateline', 'text', 'author' ]]
+df_labeled = df_labeled[['newid', 'date', 'topic_label', 'topics', 'places', 'people', 'orgs', 'exchanges','companies', 'title', 'dateline', 'text', 'author' ]]
+
+#Adding Data
+df_labeled.to_json("labeled_data.json")
