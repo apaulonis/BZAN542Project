@@ -1,10 +1,14 @@
 
-from numpy.core.numeric import full
+
+
 import pandas as pd
 import nltk
 import string
 from nltk.corpus import stopwords
 from nltk.tokenize.treebank import TreebankWordDetokenizer
+import plotly.express as px
+from collections import Counter
+
 
 full_data = pd.read_json('labeled_data.json')
 
@@ -77,15 +81,8 @@ class WordProcessor:
         for k, v in pos_dict.items():
             pos_proportions[k] = v/len(clean_words)
 
-        
 
 
-        
-
-
-
-
-word_tokens = nltk.tokenize.word_tokenize(self.all_words)
 
 isinstance(WordProcessor(full_data).all_words, pd.core.frame.DataFrame )
 WordProcessor(full_data).all_words
@@ -199,6 +196,8 @@ pos_counter = {key: 0 for key in pos_comprehensive}
 
 #missing_keys = {'document':[], 'element':[], 'string':[]}
 all_counts = []
+all_proportions = []
+
 for i in range(len(full_data['clean_tagged'])):
     pos_dict = pos_counter.copy()
 
@@ -217,18 +216,18 @@ for i in range(len(full_data['clean_tagged'])):
     if i % 1000 == 0:
         print(i)
         
-"""
-pos_proportions = dict()
-for k, v in pos_dict.items():
-    pos_proportions[k] = v/len(clean_words)
 
-all_proportions.append(pos_proportions)
+    pos_proportions = dict()
+    for k, v in pos_dict.items():
+        pos_proportions[k] = v/len(full_data['clean_tagged'][i])
 
-if i % 1000 = 0:
-    print(i)
-"""
+    all_proportions.append(pos_proportions)
 
-#### PART OF SPEECH STUFF WITH CLEAN AND TAGGED DATA
+    if i % 1000 == 0:
+        print(i)
+
+
+#### PART OF SPEECH STUFF WITH CLEAN, STEMMED AND TAGGED DATA
 all_counts_stem = []
 for i in range(len(full_data['clean_stemmed_tagged'])):
     pos_dict = pos_counter.copy()
@@ -248,8 +247,182 @@ for i in range(len(full_data['clean_stemmed_tagged'])):
     if i % 1000 == 0:
         print(i)
 
-df_pos = pd.DataFrame(all_counts)
-df_pos_stemmed = pd.DataFrame(all_counts_stem)
 
-df_pos_stemmed.head()
+
+df_pos = pd.DataFrame(all_counts)
+df_pos_prop = pd.DataFrame(all_proportions)
+
+df_pos
+df_pos_prop
+
+
+#df_pos_stemmed = pd.DataFrame(all_counts_stem)
+
+df_pos.head()
+#df_pos_stemmed.head()
+
+df_pos['EXCEPT'].sum()
+#df_pos_stemmed['EXCEPT'].sum()
+
+
+df_pos.apply(sum, axis= 0)
+
+
+
+
+full_data = full_data.join(df_pos_prop)
+
+full_data.columns
+
+full_data = full_data.join(df_pos_prop, rsuffix= '_prob' )
+
+
+cols = [x + '_prob' for x in 
+['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD',
+       'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'PRP', 'RB', 'RBR', 'RBS',
+       'RP', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP',
+      'WP$', 'WRB', 'EXCEPT'] ]
+
+ls= ['topic_label']
+[ls.append(x) for x in cols]
+
+ls
+len(ls)
+#plot_averages = full_data[['topic_label','CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD',
+#       'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'PRP', 'RB', 'RBR', 'RBS',
+#       'RP', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP',
+#       'WP$', 'WRB', 'EXCEPT']].groupby('topic_label', as_index= False).aggregate('mean')
+
+"""
+plot_averages.columns
+fig = px.bar(
+    plot_averages,
+       x='topic_label',
+
+       y= ['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD',
+       'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'PRP', 'RB', 'RBR', 'RBS',
+       'RP', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP',
+       'WP$', 'WRB', 'EXCEPT' ]
+)
+
+fig.show()
+"""
+full_data.columns
+
+plots = dict()
+
+
+
+from plotly import tools
+from plotly import subplots
+import plotly.graph_objs as go
+
+
+plots['trace' + str(0)] = 1
+
+fig = subplots.make_subplots(rows = 18, cols = 2, subplot_titles= ls[1:])
+
+for i, col in enumerate(ls[1:]):
+    row = int(i/2) + 1
+    col = i % 2 + 1
+    print(row,col)
+
+    fig_internal = go.Figure()
+    for el in full_data['topic_label'].unique():
+        fig.add_trace(go.Histogram(
+            x= list(full_data[ls[i]][full_data['topic_label'] == el])),
+            row = row, col = col)
+
+    fig.update_layout(barmode = 'overlay')
+    fig.update_traces(opacity = 0.4)
+
+fig.update_layout(height = 5000, width = 2000)
+fig.show()
+int(35/2)+1 
+
+
+2 // 2 +1
+
+
+5//2
+len(ls[1:])
+
+full_data[ls[2]][full_data['topic_label'] == 'commodity']
+
+
+fig2 = px.histogram(full_data[ls],
+    x = full_data[ls[2]],
+    opacity= 0.7,
+    color = full_data['topic_label']  )
+
+fig2.show()
+
+fig3 = go.Histogram(
+    x= list(full_data[ls[2]])
+
+)
+fig3.show()
+['topics_list'].append(cols)
+
+full_data.columns
+
+
+
+#Generate a set of every word. Will iterate over to get a count of all words
+every_word = set()
+for i in range(len(full_data['clean_stemmed'])):
+    every_word.update(full_data['clean_stemmed'][i] )
+
+word_count_comprehensive = dict()
+#Generate keys for a comprehensive word count
+for key in every_word:
+    word_count_comprehensive[key] = 0 
+
+#Generate comprehensive word count
+for i in range(len(full_data['clean_stemmed'])):
+    for j in range(len(full_data['clean_stemmed'][i])):
+
+        word_count_comprehensive[full_data['clean_stemmed'][i][j]] += 1
+
+
+dict(sorted(word_count_comprehensive.items(), key=lambda item: item[1], reverse= True))
+
+
+word_count2 = Counter()
+
+for i in range(len(full_data['clean_stemmed'])):
+    for j in range(len(full_data['clean_stemmed'][i])):
+
+        word_count2[full_data['clean_stemmed'][i][j]] += 1
+
+len(every_word)
+
+top500_words = {tup[0] for tup in word_count2.most_common(500)}
+top500_counts = dict()
+top500_tally = dict()
+
+for key in top500_words:
+    top500_counts[key] = [] 
+    top500_tally[key] = 0
+
+
+for i in range(len(full_data['clean_stemmed'])):
+    tally = top500_tally.copy()
+    for j in range(len(full_data['clean_stemmed'][i])):
+        
+        try:
+            tally[full_data['clean_stemmed'][i][j]] += 1
+        
+        except:
+            continue
+
+    for k, v  in tally.items():
+        top500_counts[k].append(v)
+
+top500_counts.items()
+
+
+df_top500_words = pd.DataFrame(top500_counts)
+
+full_data.join(df_top500_words, rsuffix= '_count' )
 
