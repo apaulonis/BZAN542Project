@@ -2,13 +2,16 @@ import pandas as pd
 import numpy as np
 import re
 
-
 #To run spacy you need to install both spacy and en_core_web_md model into your python enviroment
 import spacy
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+from sklearn.svm import LinearSVC
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 nlp = spacy.load("en_core_web_md", disable=["parser", "ner", "entity_linker", "entity_ruler", "textcat", "textcat_multilabel"])
 
@@ -52,3 +55,29 @@ print(vectorized_train_docs[4,:])
 tokens = tfidf.get_feature_names()
 tokens[5382]
 
+model = OneVsRestClassifier(LinearSVC(random_state=20258))
+
+model.fit(vectorized_train_docs, train_labels)
+predictions = model.predict(vectorized_test_docs)
+
+def evaluate(test_labels, predictions):
+    precision = precision_score(test_labels, predictions, average='micro', zero_division=0)
+    recall = recall_score(test_labels, predictions, average='micro', zero_division=0)
+    f1 = f1_score(test_labels, predictions, average='micro', zero_division=0)
+    print("Micro-average fit scores")
+    print("Precision: {:.4f}, Recall: {:.4f}, F1: {:.4f}".format(precision, recall, f1))
+    precision = precision_score(test_labels, predictions, average='macro', zero_division=0)
+    recall = recall_score(test_labels, predictions, average='macro', zero_division=0)
+    f1 = f1_score(test_labels, predictions, average='macro', zero_division=0)
+    print("Macro-average fit scores")
+    print("Precision: {:.4f}, Recall: {:.4f}, F1: {:.4f}".format(precision, recall, f1))
+    
+evaluate(test_labels, predictions)
+
+#found a random earnings report for apple of the internet and our model classifies it what up!!
+newtext = 'Cupertino, California — January 27, 2021 — Apple today announced financial results for its fiscal 2021 first quarter ended December 26, 2020. The Company posted all-time record revenue of $111.4 billion, up 21 percent year over year, and quarterly earnings per diluted share of $1.68, up 35 percent. International sales accounted for 64 percent of the quarter’s revenue. “Our December quarter business performance was fueled by double-digit growth in each product category, which drove all-time revenue records in each of our geographic segments and an all-time high for our installed base of active devices,” said Luca Maestri, Apple’s CFO. “These results helped us generate record operating cash flow of $38.8 billion. We also returned over $30 billion to shareholders during the quarter as we maintain our target of reaching a net cash neutral position over time.”'
+
+vectorized_newtext = tfidf.transform([newtext])
+
+predictnew = model.predict(vectorized_newtext)
+labellist[np.where(predictnew[0] == 1)].tolist()
