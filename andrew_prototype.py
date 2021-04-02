@@ -11,7 +11,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from sklearn.svm import LinearSVC
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+
+from matplotlib import pyplot as plt
+import matplotlib
+
 
 nlp = spacy.load("en_core_web_md", disable=["parser", "ner", "entity_linker", "entity_ruler", "textcat", "textcat_multilabel"])
 
@@ -81,3 +85,9 @@ vectorized_newtext = tfidf.transform([newtext])
 
 predictnew = model.predict(vectorized_newtext)
 labellist[np.where(predictnew[0] == 1)].tolist()
+
+cm = confusion_matrix(test_labels.argmax(axis=1), predictions.argmax(axis=1))
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = labellist)
+disp.plot(xticks_rotation="vertical")
+plt.show()
+
