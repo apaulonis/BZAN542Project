@@ -1,18 +1,21 @@
-
-
-
+from numpy.core.numeric import full
 import pandas as pd
+import re
 import nltk
 import string
 from nltk.corpus import stopwords
 from nltk.tokenize.treebank import TreebankWordDetokenizer
 import plotly.express as px
 from collections import Counter
+from collections import defaultdict
+import datetime
 
 
-full_data = pd.read_json('labeled_data.json')
+full_data = pd.read_json('labeled_data.json', convert_dates= False)
 
-full_data.info()
+#Cleaning Date
+full_data['date'] = full_data['date'].str.slice(start = 0, stop = 20)
+full_data['date'] = pd.to_datetime(full_data['date'])
 
 #Stop words from nltk, punctuation from string
 stop_words = set(stopwords.words('english'))
@@ -22,12 +25,12 @@ punc = punc.union({'--', '``', "''"})
 
 class WordProcessor:
 
-    def __init__(self, words) -> None:
+    def __init__(self, words):
         super().__init__()
 
-        self.data_structure = type(words)
+        self.data = words
 
-        self.all_words = words
+        self.data_structure = type(words)
 
         if isinstance(words, pd.core.frame.DataFrame ):
             self.all_words = words['text']
@@ -307,11 +310,12 @@ fig = px.bar(
 
 fig.show()
 """
+
+
+"""
 full_data.columns
 
 plots = dict()
-
-
 
 from plotly import tools
 from plotly import subplots
@@ -340,16 +344,9 @@ fig.update_layout(height = 5000, width = 2000)
 fig.show()
 int(35/2)+1 
 
-
-2 // 2 +1
-
-
-5//2
 len(ls[1:])
 
 full_data[ls[2]][full_data['topic_label'] == 'commodity']
-
-
 fig2 = px.histogram(full_data[ls],
     x = full_data[ls[2]],
     opacity= 0.7,
@@ -365,7 +362,7 @@ fig3.show()
 ['topics_list'].append(cols)
 
 full_data.columns
-
+"""
 
 
 #Generate a set of every word. Will iterate over to get a count of all words
@@ -384,9 +381,7 @@ for i in range(len(full_data['clean_stemmed'])):
 
         word_count_comprehensive[full_data['clean_stemmed'][i][j]] += 1
 
-
 dict(sorted(word_count_comprehensive.items(), key=lambda item: item[1], reverse= True))
-
 
 word_count2 = Counter()
 
@@ -396,6 +391,8 @@ for i in range(len(full_data['clean_stemmed'])):
         word_count2[full_data['clean_stemmed'][i][j]] += 1
 
 len(every_word)
+
+word_count2.most_common(250)
 
 top500_words = {tup[0] for tup in word_count2.most_common(500)}
 top500_counts = dict()
@@ -417,12 +414,79 @@ for i in range(len(full_data['clean_stemmed'])):
             continue
 
     for k, v  in tally.items():
-        top500_counts[k].append(v)
-
-top500_counts.items()
-
+        top500_counts[k].append(v/len(full_data['clean_stemmed'][i]) )
 
 df_top500_words = pd.DataFrame(top500_counts)
 
-full_data.join(df_top500_words, rsuffix= '_count' )
+full_data = full_data.join(df_top500_words, rsuffix= '_stemmed_count' )
+
+full_data.shape
+
+
+
+
+###Tokenize by sentence for chunking.
+sentences = nltk.tokenize.sent_tokenize(full_data['text'][0])
+sentences = [nltk.word_tokenize(sent) for sent in sentences]
+sentences = [nltk.pos_tag(sent) for sent in sentences]
+
+sentences
+
+grammar = "NP: {<DT>?<JJ.*>?<NN.*><NN.*>+}"
+grammar = "NP: {<DT>?<CD>?<NN.*><NN.*>+}"
+
+
+cp = nltk.RegexpParser(grammar)
+results = []
+
+for i in range(len(sentences)):
+    result = cp.parse(sentences[i])
+    results.append(result)
+
+
+for i in range(len(sentences)):
+    results[i].draw()
+
+
+
+#Named Entity Relationships
+#nltk.ne_chunk_sents()
+for sent in sentences:
+    print(nltk.ne_chunk(sent))
+
+for sent in sentences:
+    print(nltk.ne_chunk(sent, binary = True))
+
+
+
+NE_chunk = nltk.ne_chunk(sentences[0], binary = True)
+NE_chunk.subtrees()
+for el in NE_chunk.subtrees():
+    print(el.label())
+    if el.label() == 'NE':
+        print(el)
+
+
+
+#NAmed entitity counting stuff
+NE_counts = dict()
+
+for i in range(len(full_data)):
+
+    sentences = nltk.tokenize.sent_tokenize(full_data['text'][i])
+    sentences = [nltk.word_tokenize(sent) for sent in sentences]
+    sentences = [nltk.pos_tag(sent) for sent in sentences]
+
+    for sent in sentences:
+        NE_chunk = nltk.ne_chunk(sent, binary = True)
+
+
+
+
+IN = re.compile(r'.*\bin\b(?!\b.+ing)')
+
+for sent in nltk.sem.extract_rels('ORG', 'LOC', sent,   corpus=full_data['text'][0], pattern = IN):
+    print(nltk.sem.show_raw_rtuple(rel))
+
+
 
