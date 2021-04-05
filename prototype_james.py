@@ -1,492 +1,311 @@
-from numpy.core.numeric import full
-import pandas as pd
+from collections import Counter
+import string
 import re
 import nltk
-import string
+import pandas as pd
 from nltk.corpus import stopwords
-from nltk.tokenize.treebank import TreebankWordDetokenizer
-import plotly.express as px
-from collections import Counter
-from collections import defaultdict
-import datetime
+import numpy as np
 
-
-full_data = pd.read_json('labeled_data.json', convert_dates= False)
-
-#Cleaning Date
-full_data['date'] = full_data['date'].str.slice(start = 0, stop = 20)
-full_data['date'] = pd.to_datetime(full_data['date'])
-
-#Stop words from nltk, punctuation from string
-stop_words = set(stopwords.words('english'))
-punc = {i for i in string.punctuation}
-punc = punc.union({'--', '``', "''"})
 
 
 class WordProcessor:
-
-    def __init__(self, words):
+    def __init__(self, df) -> pd.DataFrame:
         super().__init__()
 
-        self.data = words
+        self.data = df[['topic_label', 'text', 'date']]
+        self.train_rows = np.random.choice(full_data.index, size = int(.8*len(full_data.index)), replace= False)
+        self.train_rows.sort()
 
-        self.data_structure = type(words)
+    def get_clean_words(self, verbose = False):
+        stop_words = set(stopwords.words('english'))
+        punc = {i for i in string.punctuation}
+        punc = punc.union({'--', '``', "''"})
+        porter_stem = nltk.PorterStemmer()
 
-        if isinstance(words, pd.core.frame.DataFrame ):
-            self.all_words = words['text']
+        self.clean_words = []
+        self.clean_stemmed = []
+        self.clean_stemmed_no_nums = []
+
+        for i in self.data.index:
+            all_words = nltk.tokenize.word_tokenize(self.data['text'][i])
+            
+            
+            self.clean_words.append( [word.lower() for word in all_words if word.lower() not in stop_words and word.lower() not in punc])
+
+            self.clean_stemmed.append([porter_stem.stem(word.lower()) for word in 
+                nltk.tokenize.word_tokenize(re.sub(r'\s+', ' ', re.sub(r'\d+', '', self.data['text'][i]))) if word.lower() not in stop_words and word.lower() not in punc ])
 
 
+            if verbose:
+                if i % 2835 == 0:
+                    print('iteration no: ', i , 'of ', len(self.data.index))
 
-    def tokenizer(self, by = 'words'):
+    def get_parts_of_speech(self, verbose = False):
         """
-        by = words, sentence are the only arguments built
+        Generate features for part of speech proportions
         
-        generates a self.tokenized attribute
+        Columns appended to self.data
         """
-        if by == 'words':
-            self.tokenized = nltk.tokenize.word_tokenize( self.all_words )
+
+        #Stop words, punctuation definitions
+        pos_comprehensive = ['CC','CD', 'DT','EX', 'FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP','RB','RBR','RBS','RP','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB', 'EXCEPT']
+        pos_counter = {key: 0 for key in pos_comprehensive}
+        #all_counts = []
+        all_proportions = []
         
-        if by == 'sentence':
-            self.tokenized = nltk.tokenize.sent_tokenize( self.all_words )
+        for i in self.data['text'].index:
+            pos_dict = pos_counter.copy()
 
-    def clean(self, remove_stop_words = True, remove_punctuation = True, return_tokens = True):
+            clean_tagged = nltk.pos_tag(self.clean_words[i])
+
+            for j in range(len(clean_tagged)):
+
+                try:
+                    pos_dict[clean_tagged[j][1]] += 1
+
+                except:
+                    pos_dict['EXCEPT'] += 1
+
+            pos_proportions = dict()
+            for k, v in pos_dict.items():
+                pos_proportions[k] = v/len(clean_tagged)
+            
+            #all_counts.append(pos_dict)
+            all_proportions.append(pos_proportions)
+
+            if verbose:
+                if i % 2835 == 0:
+                    print('iteration no: ',i, 'of ', len(self.data['text'].index))
         
-        if remove_stop_words and remove_punctuation == False:
-            stop_words = set(stopwords.words('english'))
-            clean_words = [word.lower() for word in all_words if word not in stop_words]
+        df_pos_prop = pd.DataFrame(all_proportions)
+        self.data = self.data.join(df_pos_prop, rsuffix= '_prob' )
 
-        if remove_punctuation and remove_stop_words == False:
-            punc = {i for i in string.punctuation}
-            clean_words = [word.lower() for word in all_words if word not in punc]
+        #self.all_counts = all_counts
+        #self.all_proportions = all_proportions
 
-        if remove_stop_words and remove_punctuation:
-            stop_words = set(stopwords.words('english'))
-            punc = {i for i in string.punctuation}
+    def get_NE_gen(self, verbose = False):
+        self.entities = set()
+        all_entities = []
 
-            clean_words = [word.lower() for word in all_words if word not in stop_words and word not in punc]
+        for i in self.data.index:
+            sentences = nltk.tokenize.sent_tokenize(self.data['text'][i])
+            sentences = [nltk.word_tokenize(sent) for sent in sentences]
+            sentences = [nltk.pos_tag(sent) for sent in sentences]
 
-        if return_tokens:
-            self.clean_words = clean_words
-        else:
-            self.clean_words = TreebankWordDetokenizer().detokenize(clean_words)
+            list_tracker = []
 
-    def parts_of_speech():
-        pos_dict = dict()
-        for i in range(len(clean_tagged)):
-            if clean_tagged[i][1] not in pos_dict.keys():
-                pos_dict[clean_tagged[i][1]] = 1
-                continue
+            for sent in sentences:
+                NE_chunk = nltk.ne_chunk(sent, binary = True)
 
-        pos_dict[clean_tagged[i][1]] += 1
+                for el in NE_chunk.subtrees():
+                    if el.label() == 'NE':
+                        list_tracker.append(' '.join([w.lower() for w,t in el]))
 
+                        if i in self.train_rows:
+                            self.entities.update(list_tracker)
+            
+            all_entities.append(list_tracker)
 
-        pos_proportions = dict()
-        for k, v in pos_dict.items():
-            pos_proportions[k] = v/len(clean_words)
-
-
+            if verbose:
+                if i % 1000 ==0:
+                    print(i, 'processsed of', len(self.data.index))
 
 
-isinstance(WordProcessor(full_data).all_words, pd.core.frame.DataFrame )
-WordProcessor(full_data).all_words
+        NE_in_doc = dict()
+        NE_count = dict()
+
+        for el in self.entities:
+            NE_in_doc[el] = np.array([])
+            NE_count[el] = 0
 
 
+        for j in range(len(all_entities)):
+            NE_tally = NE_count.copy()
 
-type(full_data)
-type(full_data['text'])
-type(full_data['text'][0])
+            for el in all_entities[i]:
+                try:
+                    NE_tally[el] += 1
+                except:
+                    pass
 
+            for k, v in NE_tally.items():
+                try:
+                    NE_in_doc[k].append(v)
 
-
-#One element Stuff
-
-#Word tokenization in order to remove punctuation and stop words
-all_words = nltk.tokenize.word_tokenize(full_data['text'][0] )
-
-
-clean_words = [word.lower() for word in all_words if word not in stop_words and word not in punc]
-bigrams = list(nltk.bigrams(clean_words))
-cfd = nltk.ConditionalFreqDist( bigrams)
-
-clean_tagged = nltk.pos_tag(clean_words)
-
-pos_dict = dict()
-for i in range(len(clean_tagged)):
-    if clean_tagged[i][1] not in pos_dict.keys():
-        pos_dict[clean_tagged[i][1]] = 1
-        continue
-
-    pos_dict[clean_tagged[i][1]] += 1
-
-pos_proportions = dict()
-for k, v in pos_dict.items():
-    pos_proportions[k] = v/len(clean_words)
-
-pos_proportions
-
-print(clean_tagged)
-len(clean_tagged)
-#Likely want to keep both lengths as a feature
-len(all_words)
-len(clean_words)
-
-
-#Experimentation
-print(list(cfd))
-
-cfd['bahia']
-TreebankWordDetokenizer().detokenize(clean_words)
-
-
-
-##Series Wide stuff
-clean_words = []
-for i in range(len(full_data['text'])):
-    all_words = nltk.tokenize.word_tokenize(full_data['text'][i] )
-    clean_words.append([word.lower() for word in all_words if word.lower() not in stop_words and word.lower() not in punc])
-
-## No words common to EVERY article
-set_clean_words = set(clean_words[0])
-for s in clean_words[1:]:
-    set_clean_words.intersection_update(s)
-list(set_clean_words)
-
-# Adding a column of the clean words, tokenized by word
-full_data['clean_text'] = clean_words
-
-#Part of speech tagging
-all_clean_tagged = []
-for i in range(len(full_data['clean_text'])):
-    clean_tagged = nltk.pos_tag(full_data['clean_text'][i])
-    all_clean_tagged.append(clean_tagged)
-
-    if i % 1000 == 0:
-        print(i)
-    
-full_data['clean_tagged'] = all_clean_tagged
-
-# Stemming.  First pass using stems, maybe lemmatize later
-all_stemmed = []
-porter_stem = nltk.PorterStemmer()
-for i in range(len(full_data['clean_text'])):
-    
-    clean_stemmed =  [porter_stem.stem(word) for word in full_data['clean_text'][i]]
-
-    all_stemmed.append(clean_stemmed)
-
-    if i % 1000 == 0:
-        print(i)
-
-full_data['clean_stemmed'] = all_stemmed
-
-#tagging stemmed version
-all_clean_stemmed_tagged = []
-for i in range(len(full_data['clean_text'])):
-    clean_stemmed_tagged = nltk.pos_tag(full_data['clean_stemmed'][i])
-    all_clean_stemmed_tagged.append(clean_stemmed_tagged)
-
-    if i % 1000 == 0:
-        print(i)
-    
-full_data['clean_stemmed_tagged'] = all_clean_stemmed_tagged
-
-
-#Part of speech summary.
-#All tags NLK may return
-pos_comprehensive = ['CC','CD', 'DT','EX', 'FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP','RB','RBR','RBS','RP','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB', 'EXCEPT']
-
-pos_counter = {key: 0 for key in pos_comprehensive}
-
-#missing_keys = {'document':[], 'element':[], 'string':[]}
-all_counts = []
-all_proportions = []
-
-for i in range(len(full_data['clean_tagged'])):
-    pos_dict = pos_counter.copy()
-
-    for j in range(len(full_data['clean_tagged'][i])):
-
-        try:
-            pos_dict[full_data['clean_tagged'][i][j][1]] += 1
-
-        except:
-            #missing_keys['document'].append(i)
-            #missing_keys['element'].append(j)
-            #missing_keys['string'].append(full_data['clean_tagged'][i][j][0])
-            pos_dict['EXCEPT'] +=1 
-    all_counts.append(pos_dict)
-
-    if i % 1000 == 0:
-        print(i)
+                except:
+                    pass
+                
+            if verbose:
+                if j % 1000 ==0:
+                    print('iteration no: ',j, 'of ', len(self.data['text'].index), ' final pass')
         
-
-    pos_proportions = dict()
-    for k, v in pos_dict.items():
-        pos_proportions[k] = v/len(full_data['clean_tagged'][i])
-
-    all_proportions.append(pos_proportions)
-
-    if i % 1000 == 0:
-        print(i)
-
-
-#### PART OF SPEECH STUFF WITH CLEAN, STEMMED AND TAGGED DATA
-all_counts_stem = []
-for i in range(len(full_data['clean_stemmed_tagged'])):
-    pos_dict = pos_counter.copy()
-
-    for j in range(len(full_data['clean_stemmed_tagged'][i])):
-
-        try:
-            pos_dict[full_data['clean_stemmed_tagged'][i][j][1]] += 1
-
-        except:
-            #missing_keys['document'].append(i)
-            #missing_keys['element'].append(j)
-            #missing_keys['string'].append(full_data['clean_tagged'][i][j][0])
-            pos_dict['EXCEPT'] +=1 
-
-    all_counts_stem.append(pos_dict)
-    if i % 1000 == 0:
-        print(i)
-
-
-
-df_pos = pd.DataFrame(all_counts)
-df_pos_prop = pd.DataFrame(all_proportions)
-
-df_pos
-df_pos_prop
-
-
-#df_pos_stemmed = pd.DataFrame(all_counts_stem)
-
-df_pos.head()
-#df_pos_stemmed.head()
-
-df_pos['EXCEPT'].sum()
-#df_pos_stemmed['EXCEPT'].sum()
-
-
-df_pos.apply(sum, axis= 0)
-
-
-
-
-full_data = full_data.join(df_pos_prop)
-
-full_data.columns
-
-full_data = full_data.join(df_pos_prop, rsuffix= '_prob' )
-
-
-cols = [x + '_prob' for x in 
-['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD',
-       'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'PRP', 'RB', 'RBR', 'RBS',
-       'RP', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP',
-      'WP$', 'WRB', 'EXCEPT'] ]
-
-ls= ['topic_label']
-[ls.append(x) for x in cols]
-
-ls
-len(ls)
-#plot_averages = full_data[['topic_label','CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD',
-#       'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'PRP', 'RB', 'RBR', 'RBS',
-#       'RP', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP',
-#       'WP$', 'WRB', 'EXCEPT']].groupby('topic_label', as_index= False).aggregate('mean')
-
-"""
-plot_averages.columns
-fig = px.bar(
-    plot_averages,
-       x='topic_label',
-
-       y= ['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD',
-       'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'PRP', 'RB', 'RBR', 'RBS',
-       'RP', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP', 'VBZ', 'WDT', 'WP',
-       'WP$', 'WRB', 'EXCEPT' ]
-)
-
-fig.show()
-"""
-
-
-"""
-full_data.columns
-
-plots = dict()
-
-from plotly import tools
-from plotly import subplots
-import plotly.graph_objs as go
-
-
-plots['trace' + str(0)] = 1
-
-fig = subplots.make_subplots(rows = 18, cols = 2, subplot_titles= ls[1:])
-
-for i, col in enumerate(ls[1:]):
-    row = int(i/2) + 1
-    col = i % 2 + 1
-    print(row,col)
-
-    fig_internal = go.Figure()
-    for el in full_data['topic_label'].unique():
-        fig.add_trace(go.Histogram(
-            x= list(full_data[ls[i]][full_data['topic_label'] == el])),
-            row = row, col = col)
-
-    fig.update_layout(barmode = 'overlay')
-    fig.update_traces(opacity = 0.4)
-
-fig.update_layout(height = 5000, width = 2000)
-fig.show()
-int(35/2)+1 
-
-len(ls[1:])
-
-full_data[ls[2]][full_data['topic_label'] == 'commodity']
-fig2 = px.histogram(full_data[ls],
-    x = full_data[ls[2]],
-    opacity= 0.7,
-    color = full_data['topic_label']  )
-
-fig2.show()
-
-fig3 = go.Histogram(
-    x= list(full_data[ls[2]])
-
-)
-fig3.show()
-['topics_list'].append(cols)
-
-full_data.columns
-"""
-
-
-#Generate a set of every word. Will iterate over to get a count of all words
-every_word = set()
-for i in range(len(full_data['clean_stemmed'])):
-    every_word.update(full_data['clean_stemmed'][i] )
-
-word_count_comprehensive = dict()
-#Generate keys for a comprehensive word count
-for key in every_word:
-    word_count_comprehensive[key] = 0 
-
-#Generate comprehensive word count
-for i in range(len(full_data['clean_stemmed'])):
-    for j in range(len(full_data['clean_stemmed'][i])):
-
-        word_count_comprehensive[full_data['clean_stemmed'][i][j]] += 1
-
-dict(sorted(word_count_comprehensive.items(), key=lambda item: item[1], reverse= True))
-
-word_count2 = Counter()
-
-for i in range(len(full_data['clean_stemmed'])):
-    for j in range(len(full_data['clean_stemmed'][i])):
-
-        word_count2[full_data['clean_stemmed'][i][j]] += 1
-
-len(every_word)
-
-word_count2.most_common(250)
-
-top500_words = {tup[0] for tup in word_count2.most_common(500)}
-top500_counts = dict()
-top500_tally = dict()
-
-for key in top500_words:
-    top500_counts[key] = [] 
-    top500_tally[key] = 0
-
-
-for i in range(len(full_data['clean_stemmed'])):
-    tally = top500_tally.copy()
-    for j in range(len(full_data['clean_stemmed'][i])):
+        self.data = self.data.join(pd.DataFrame(NE_in_doc), rsuffix= '_entity' )
+
+    def get_word_sets(self):
+        if not hasattr(self, 'clean_stemmed_no_nums'):
+            self.get_clean_words()
         
-        try:
-            tally[full_data['clean_stemmed'][i][j]] += 1
+        self.word_set = set()
+        commodity_set = set()
+        earnings_set = set()
+        acquisitions_set = set()
+        econ_set = set()
+        money_set = set()
+        energy_set = set()
+
+        for i in self.train_rows:
+
+            working_label = self.data['topic_label'][i]
+            
+            self.word_set.update(self.clean_stemmed[i])
+
+            if working_label == 'commodity':
+                commodity_set.update(self.clean_stemmed[i])
+
+            if working_label == 'earnings':
+                earnings_set.update(self.clean_stemmed[i])
+
+            if working_label == 'acquisitions':
+                acquisitions_set.update(self.clean_stemmed[i])
+
+            if working_label == 'econ':
+                econ_set.update(self.clean_stemmed[i])
+
+            if working_label == 'money':
+                money_set.update(self.clean_stemmed[i])
+
+            if working_label == 'energy':
+                energy_set.update(self.clean_stemmed[i])
+
+        self.unique_commodity = commodity_set-(earnings_set|acquisitions_set|econ_set|money_set|energy_set)
+        self.unique_earnings = earnings_set-(commodity_set|acquisitions_set|econ_set|money_set|energy_set)
+        self.unique_acquisitions = acquisitions_set-(earnings_set|commodity_set|econ_set|money_set|energy_set)
+        self.unique_econ = econ_set-(acquisitions_set|earnings_set|commodity_set|money_set|energy_set)
+        self.unique_money = money_set-(econ_set|acquisitions_set|earnings_set|commodity_set|energy_set)
+        self.unique_energy = energy_set-(econ_set|acquisitions_set|earnings_set|commodity_set|money_set)
+
+    def get_counts(self, verbose = False):
+        if not hasattr(self, 'word_set'):
+            self.get_word_sets()
         
-        except:
-            continue
+        self.all_words = dict()
+        self.all_docs = dict()
+        word_counter_master = dict()
 
-    for k, v  in tally.items():
-        top500_counts[k].append(v/len(full_data['clean_stemmed'][i]) )
+        category_tracker = {
+            'commodity' : [],
+            'earnings' : [],
+            'acquisitions' : [],
+            'econ' : [],
+            'money' : [],
+            'energy' : [],
+            'commodity_dummy' : [],
+            'earnings_dummy' : [],
+            'acquisitions_dummy' : [],
+            'econ_dummy' : [],
+            'money_dummy' : [],
+            'energy_dummy' : []
+        }
 
-df_top500_words = pd.DataFrame(top500_counts)
+        category_tracker['acquisitions'] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
+        category_tracker['commodity'] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
+        category_tracker['earnings'] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
+        category_tracker['econ'] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
+        category_tracker['energy'] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
+        category_tracker['money'] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
 
-full_data = full_data.join(df_top500_words, rsuffix= '_stemmed_count' )
+        category_tracker['acquisitions_dummy'] = np.zeros(len(self.clean_stemmed), dtype= np.int8)
+        category_tracker['commodity_dummy'] = np.zeros(len(self.clean_stemmed), dtype= np.int8)
+        category_tracker['earnings_dummy'] = np.zeros(len(self.clean_stemmed), dtype= np.int8)
+        category_tracker['econ_dummy'] = np.zeros(len(self.clean_stemmed), dtype= np.int8)
+        category_tracker['energy_dummy'] = np.zeros(len(self.clean_stemmed), dtype= np.int8)
+        category_tracker['money_dummy'] = np.zeros(len(self.clean_stemmed), dtype= np.int8)
 
-full_data.shape
+        for word in self.word_set:
+            self.all_words[word] = np.zeros(len(self.clean_stemmed), dtype= np.float32)
+            self.all_docs[word] = 0
+            #word_counter_master[word] = 0
+
+        for i in range(len(self.clean_stemmed)):
+            #word_count = word_counter_master.copy()
+            word_count = Counter()
+
+            if verbose:
+                if i % 100 == 0:
+                    print('iteration ', i, ' of ', len(self.clean_stemmed))
+
+            for word in self.clean_stemmed[i]:
+                try:
+                    word_count[word] += 1
+                
+                except:
+                    pass
+
+            for k, v in word_count.items():
+                try:
+                    self.all_words[k][i] = (v / len(self.clean_stemmed[i]))
+                    self.all_docs[k] += ((v > 0) * 1)
+
+                    category_tracker['acquisitions'][i] += v * (k in self.unique_acquisitions)
+                    category_tracker['commodity'][i] += v * (k in self.unique_commodity)
+                    category_tracker['earnings'][i] += v * (k in self.unique_earnings)
+                    category_tracker['econ'][i] += v * (k in self.unique_econ)
+                    category_tracker['energy'][i] += v * (k in self.unique_energy)
+                    category_tracker['money'][i] += v * (k in self.unique_money)
+                except:
+                    pass
+
+        category_tracker['acquisitions_dummy'] =  (category_tracker['acquisitions'] > 0) * 1 
+        category_tracker['commodity_dummy'] = (category_tracker['commodity'] > 0) * 1 
+        category_tracker['earnings_dummy'] = (category_tracker['earnings'] > 0) * 1 
+        category_tracker['econ_dummy'] = (category_tracker['econ'] > 0) * 1 
+        category_tracker['energy_dummy'] = (category_tracker['energy'] > 0) * 1 
+        category_tracker['money_dummy'] = (category_tracker['money'] > 0) * 1 
+
+        category_tracker = pd.DataFrame(category_tracker)
+
+        self.data = self.data.join(category_tracker, rsuffix = '_words')
+
+    def get_tf_idf(self):
+        """
+        Term adjusted frequency * log(Ndocs total/ Ndocs with term)
+        
+        (count term) / (# words in doc)
+        """
+        tf_idf = dict()
+        for k, v in self.all_words.items():
+            tf_idf[k] = v * np.log( len( v ) / self.all_docs[k] )
+
+        if hasattr(self, 'all_words'):        
+            delattr(self, 'all_words')
+            delattr(self, 'all_docs')
+
+        tf_idf = pd.DataFrame(tf_idf)
+
+        self.data = self.data.join(tf_idf, rsuffix = '_tfidf')
+
+    def get_all(self):
+        self.get_clean_words()
+        self.get_parts_of_speech
+        self.get_word_sets()
+        self.get_counts()
+        self.get_tf_idf()
 
 
 
+if __name__ == '__main__':
+    full_data = pd.read_json('labeled_data.json', convert_dates= False)
 
-###Tokenize by sentence for chunking.
-sentences = nltk.tokenize.sent_tokenize(full_data['text'][0])
-sentences = [nltk.word_tokenize(sent) for sent in sentences]
-sentences = [nltk.pos_tag(sent) for sent in sentences]
+    #Cleaning Date
+    full_data['date'] = full_data['date'].str.slice(start = 0, stop = 20)
+    full_data['date'] = pd.to_datetime(full_data['date'])
 
-sentences
+    obj = WordProcessor(full_data)
 
-grammar = "NP: {<DT>?<JJ.*>?<NN.*><NN.*>+}"
-grammar = "NP: {<DT>?<CD>?<NN.*><NN.*>+}"
-
-
-cp = nltk.RegexpParser(grammar)
-results = []
-
-for i in range(len(sentences)):
-    result = cp.parse(sentences[i])
-    results.append(result)
+    obj.get_all()
+    print(obj.data.shape)
 
 
-for i in range(len(sentences)):
-    results[i].draw()
-
-
-
-#Named Entity Relationships
-#nltk.ne_chunk_sents()
-for sent in sentences:
-    print(nltk.ne_chunk(sent))
-
-for sent in sentences:
-    print(nltk.ne_chunk(sent, binary = True))
-
-
-
-NE_chunk = nltk.ne_chunk(sentences[0], binary = True)
-NE_chunk.subtrees()
-for el in NE_chunk.subtrees():
-    print(el.label())
-    if el.label() == 'NE':
-        print(el)
-
-
-
-#NAmed entitity counting stuff
-NE_counts = dict()
-
-for i in range(len(full_data)):
-
-    sentences = nltk.tokenize.sent_tokenize(full_data['text'][i])
-    sentences = [nltk.word_tokenize(sent) for sent in sentences]
-    sentences = [nltk.pos_tag(sent) for sent in sentences]
-
-    for sent in sentences:
-        NE_chunk = nltk.ne_chunk(sent, binary = True)
-
-
-
-
-IN = re.compile(r'.*\bin\b(?!\b.+ing)')
-
-for sent in nltk.sem.extract_rels('ORG', 'LOC', sent,   corpus=full_data['text'][0], pattern = IN):
-    print(nltk.sem.show_raw_rtuple(rel))
 
 
 
