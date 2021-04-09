@@ -9,11 +9,11 @@ import numpy as np
 
 
 class WordProcessor:
-    def __init__(self, df) -> pd.DataFrame:
+    def __init__(self, df):
         super().__init__()
 
         self.data = df[['topic_label', 'text', 'date']]
-        self.train_rows = np.random.choice(full_data.index, size = int(.8*len(full_data.index)), replace= False)
+        self.train_rows = np.random.choice(self.data.index, size = int(.8*len(self.data.index)), replace= False)
         self.train_rows.sort()
 
     def get_clean_words(self, verbose = False):
@@ -115,14 +115,14 @@ class WordProcessor:
         NE_count = dict()
 
         for el in self.entities:
-            NE_in_doc[el] = np.array([])
+            NE_in_doc[el] = np.zeros(len(self.data.index), dtype= np.int8)
             NE_count[el] = 0
 
 
         for j in range(len(all_entities)):
             NE_tally = NE_count.copy()
 
-            for el in all_entities[i]:
+            for el in all_entities[j]:
                 try:
                     NE_tally[el] += 1
                 except:
@@ -130,7 +130,7 @@ class WordProcessor:
 
             for k, v in NE_tally.items():
                 try:
-                    NE_in_doc[k].append(v)
+                    NE_in_doc[k][j] = v
 
                 except:
                     pass
@@ -286,12 +286,11 @@ class WordProcessor:
 
     def get_all(self):
         self.get_clean_words()
-        self.get_parts_of_speech
+        self.get_parts_of_speech()
         self.get_word_sets()
         self.get_counts()
         self.get_tf_idf()
-
-
+        self.get_NE_gen()
 
 if __name__ == '__main__':
     full_data = pd.read_json('labeled_data.json', convert_dates= False)
@@ -303,9 +302,6 @@ if __name__ == '__main__':
     obj = WordProcessor(full_data)
 
     obj.get_all()
+
+    obj.data.drop('text',axis = 1)
     print(obj.data.shape)
-
-
-
-
-
