@@ -12,6 +12,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import RandomizedSearchCV
+
+from scipy.stats import loguniform
 
 from matplotlib import pyplot as plt
 import matplotlib
@@ -90,4 +93,23 @@ cm = confusion_matrix(test_labels.argmax(axis=1), predictions.argmax(axis=1))
 disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = labellist)
 disp.plot(xticks_rotation="vertical")
 plt.show()
+
+#Tuning for the SVC model to try to improve preformance
+params = {'estimator__C': loguniform(0.01, 10),
+          'estimator__class_weight': [None,'balanced'],
+          'estimator__loss': ['squared_hinge','hinge']}
+
+model_tune = OneVsRestClassifier(LinearSVC(max_iter=3000, random_state=1000))
+search = RandomizedSearchCV(estimator=model_tune, param_distributions=params, scoring='f1_micro', n_iter=10, cv=5, n_jobs=-1, verbose=0)
+search.fit(vectorized_train_docs, train_labels)
+
+print('Best params: ',search.best_params_)
+print('Best Cross Validation Score: {:.4f}'.format(search.best_score_))
+
+predictions_tune = search.predict(vectorized_test_docs)
+evaluate(test_labels, predictions_tune)
+
+#tuning did not lead to a improvement in f1 score for Micro-average this means we should stick with the default
+#values used to make the original predicitons.
+
 
