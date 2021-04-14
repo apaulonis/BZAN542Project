@@ -112,4 +112,20 @@ evaluate(test_labels, predictions_tune)
 #tuning did not lead to a improvement in f1 score for Micro-average this means we should stick with the default
 #values used to make the original predicitons.
 
+#Next we will attempt to use a SVC with a language model doc2vec approach using spaCy.
+#This will turn each document into a 300 dimensional vector based on the spaCy model of the english language. 
+def doc2vec(text):
+    min_length = 3
+    p = re.compile('[a-zA-Z]+')
+    tokens = [token for token in nlp(text) if not token.is_stop and
+              p.match(token.text) and
+              len(token.text) >= min_length]
+    doc = np.average([token.vector for token in tokens], axis=0)
+    return doc 
+
+#these two lines also tend to be quite beefy so do not panic when it takes awhile
+doc2vec_train_docs = np.array([doc2vec(doc) for doc in train_docs.loc[:,'text'].to_list()]) 
+doc2vec_test_docs = np.array([doc2vec(doc) for doc in test_docs.loc[:,'text'].to_list()])
+
+doc2vec_train_docs.shape 
 
