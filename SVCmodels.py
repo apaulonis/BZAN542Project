@@ -100,7 +100,7 @@ params = {'estimator__C': loguniform(0.01, 10),
           'estimator__loss': ['squared_hinge','hinge']}
 
 model_tune = OneVsRestClassifier(LinearSVC(max_iter=3000, random_state=1000))
-search = RandomizedSearchCV(estimator=model_tune, param_distributions=params, scoring='f1_micro', n_iter=10, cv=5, n_jobs=-1, verbose=0)
+search = RandomizedSearchCV(estimator=model_tune, param_distributions=params, scoring='f1_micro', n_iter=10, cv=5, n_jobs=-1, verbose=0, random_state=1000)
 search.fit(vectorized_train_docs, train_labels)
 
 print('Best params: ',search.best_params_)
@@ -129,3 +129,38 @@ doc2vec_test_docs = np.array([doc2vec(doc) for doc in test_docs.loc[:,'text'].to
 
 doc2vec_train_docs.shape 
 
+#time to build a SVC model again this time with our doc2vec x matrix.
+model2 = OneVsRestClassifier(LinearSVC(random_state=1002))
+
+model2.fit(doc2vec_train_docs, train_labels)
+predictions2 = model2.predict(doc2vec_test_docs)
+evaluate(test_labels, predictions2)
+
+#time to tune for the doc2vec model
+params2 = {'estimator__C': loguniform(0.01, 100),
+          'estimator__class_weight': [None,'balanced'],
+          'estimator__loss': ['squared_hinge','hinge']}
+
+model2_tune = OneVsRestClassifier(LinearSVC(max_iter=3000, random_state=1002))
+search2 = RandomizedSearchCV(estimator=model2_tune, param_distributions=params2, scoring='f1_micro', n_iter=10, cv=5, n_jobs=-1, verbose=0, random_state=1003)
+search2.fit(doc2vec_train_docs, train_labels)
+
+print('Best params: ',search2.best_params_)
+print('Best Cross Validation Score: {:.4f}'.format(search2.best_score_))
+
+predictions2_tune = search2.predict(doc2vec_test_docs)
+evaluate(test_labels, predictions2_tune)
+
+#tuning did not find a better model to fit our data so we will go with the default values again
+cm = confusion_matrix(test_labels.argmax(axis=1), predictions2.argmax(axis=1))
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = labellist)
+disp.plot(xticks_rotation="vertical")
+plt.show()
+
+#still predict the newtext correctly 
+doc2vec_newtext = np.array([doc2vec(newtext)])
+
+predictD2Vnew = model2.predict(doc2vec_newtext)
+labellist[np.where(predictD2Vnew[0] == 1)].tolist()
+
+#overall TF/IDF performed better with SVC by a small margin. Both turned out pretty good however.
