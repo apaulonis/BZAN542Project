@@ -284,9 +284,10 @@ class WordProcessor:
 
         self.data = self.data.join(tf_idf, rsuffix = '_tfidf')
 
-    def get_all(self):
+    def get_all(self, exclude = 'pos'):
         self.get_clean_words()
-        self.get_parts_of_speech()
+        if exclude != 'pos':
+            self.get_parts_of_speech()
         self.get_word_sets()
         self.get_counts()
         self.get_tf_idf()
