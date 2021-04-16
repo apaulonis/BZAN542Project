@@ -9,11 +9,11 @@ import numpy as np
 
 
 class WordProcessor:
-    def __init__(self, df):
+    def __init__(self, df, train_size = 0.8):
         super().__init__()
 
         self.data = df[['topic_label', 'text', 'date']]
-        self.train_rows = np.random.choice(self.data.index, size = int(.8*len(self.data.index)), replace= False)
+        self.train_rows = np.random.choice(self.data.index, size = int(train_size*len(self.data.index)), replace= False)
         self.train_rows.sort()
 
     def get_clean_words(self, verbose = False):
@@ -266,7 +266,7 @@ class WordProcessor:
 
         self.data = self.data.join(category_tracker, rsuffix = '_words')
 
-    def get_tf_idf(self):
+    def get_tf_idf(self, return_dict = False):
         """
         Term adjusted frequency * log(Ndocs total/ Ndocs with term)
         
@@ -279,6 +279,9 @@ class WordProcessor:
         if hasattr(self, 'all_words'):        
             delattr(self, 'all_words')
             delattr(self, 'all_docs')
+            
+        if return_dict:
+            self.tf_idf_dict = tf_idf
 
         tf_idf = pd.DataFrame(tf_idf)
 
