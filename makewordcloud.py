@@ -2,6 +2,7 @@ from wordprocessor import WordProcessor
 import pandas as pd
 import numpy as np
 from collections import Counter
+#from PIL import Image #The python logo turned into a circle.  I tried using a book, then some other stuff.  It will take more time messing with to make it look good than I'm willing to put in
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
@@ -79,15 +80,12 @@ if __name__ == '__main__':
         print(topic)
         topic_words = cloud_structure(topic)
 
-        wc = WordCloud(width = 1200, height=800, background_color = 'white', colormap = 'Set2' ).generate_from_text(topic_words)
+        wc = WordCloud(width = 1200, height=800, background_color = 'linen', colormap = 'Dark2' ).generate_from_text(topic_words)
         plot_cloud(wc)
         plt.savefig('wordcloud_' + topic + '.png', dpi = 600)
 
         tf_idf = wc_tf_idf(topic)
-        wc = WordCloud(width = 1200, height=800, background_color = 'white', colormap = 'Set2' ).generate_from_frequencies(tf_idf)
+        wc = WordCloud(width = 1200, height=800, background_color = 'linen', colormap = 'Dark2' ).generate_from_frequencies(tf_idf)
         plot_cloud(wc)
         plt.savefig('wordcloud_' + topic + 'tfidf.png', dpi = 600)
-
-
-
 
