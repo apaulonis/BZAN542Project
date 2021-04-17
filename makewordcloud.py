@@ -57,8 +57,9 @@ def plot_cloud(wordcloud, size = (12,8)):
     """
     generate word cloud
     """
-    plt.figure(figsize = size)
-    plt.imshow(wordcloud)
+    fig = plt.figure(figsize = size)
+    fig.add_axes([0,0,1,1])
+    plt.imshow(wordcloud, aspect='equal')
     plt.axis('off')
 
 def cloud_structure(topic):
@@ -82,10 +83,10 @@ if __name__ == '__main__':
 
         wc = WordCloud(width = 1200, height=800, background_color = 'linen', colormap = 'Dark2' ).generate_from_text(topic_words)
         plot_cloud(wc)
-        plt.savefig('WordClouds\wordcloud_' + topic + '.png', dpi = 600)
+        plt.savefig('WordClouds\wordcloud_' + topic + '.png', dpi = 100)
 
         tf_idf = wc_tf_idf(topic)
         wc = WordCloud(width = 1200, height=800, background_color = 'linen', colormap = 'Dark2' ).generate_from_frequencies(tf_idf)
         plot_cloud(wc)
-        plt.savefig('WordClouds\wordcloud_' + topic + 'tfidf.png', dpi = 600)
+        plt.savefig('WordClouds\wordcloud_' + topic + 'tfidf.png', dpi = 100)
 
