@@ -60,14 +60,16 @@ class Reuters():
 
         self.data = df_import
 
+if __name__ == '__main__':
+    docs = Reuters()
+    docs.make_paths()
+    for filepath in docs.paths:
+        print(filepath)
+        docs.make_soup(filepath)
+        docs.get_documents()
+        print(docs.data.tail())
 
-for filepath in docs.paths:
-    print(filepath)
-    docs.make_soup(filepath)
-    docs.get_documents()
-    print(docs.data.tail())
+    docs.data.drop(0, axis= 0,inplace=True)
 
-docs.data.drop(0, axis= 0,inplace=True)
-
-docs.data.to_json()
+    docs.data.to_json('dirty_data.json')
 
