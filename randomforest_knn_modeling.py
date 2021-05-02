@@ -432,3 +432,21 @@ disp.plot(xticks_rotation = 'vertical')
 plt.show()
 
 
+knn_final_selection
+
+rf_timer = time.perf_counter()
+clf = RandomForestClassifier(n_estimators=600, min_samples_split= 4, max_features='log2', n_jobs= -1)
+clf.fit(train_x, train_y)
+clf.predict(test_x)
+rf_timer = time.perf_counter() - rf_timer
+
+knn_timer = time.perf_counter()
+neigh = KNeighborsClassifier(n_neighbors=1, algorithm='ball_tree', leaf_size= 50, n_jobs = -1)
+neigh.fit(train_x, train_y)
+neigh.predict(test_x)
+knn_timer = time.perf_counter() - knn_timer
+
+print('rf: ', rf_timer)
+print('knn: ', knn_timer)
+
+knn_timer/rf_timer
