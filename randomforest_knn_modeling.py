@@ -1,33 +1,41 @@
+
 from wordprocessor import WordProcessor
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-import matplotlib.pyplot as plt  
-from sklearn.metrics import f1_score, confusion_matrix,ConfusionMatrixDisplay
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import f1_score, accuracy_score, confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 from sklearn.model_selection import ParameterGrid
 import time
 import plotly.express as px
 import plotly.graph_objects as go
 
 #I did a pretty poor job documenting what I was doing as I went through, looking at different models, etc.
-full_data = pd.read_json('labeled_data.json', convert_dates= False)
+def train_test():
+    full_data = pd.read_json('labeled_data.json', convert_dates= False)
 
-#Cleaning Date
-full_data['date'] = full_data['date'].str.slice(start = 0, stop = 20)
-full_data['date'] = pd.to_datetime(full_data['date'])
+    #Cleaning Date
+    full_data['date'] = full_data['date'].str.slice(start = 0, stop = 20)
+    full_data['date'] = pd.to_datetime(full_data['date'])
 
-total_corpus = WordProcessor(full_data)
-total_corpus.get_all()
+    total_corpus = WordProcessor(full_data)
+    total_corpus.get_all()
 
-###
-total_corpus.data.drop('text', axis = 1, inplace= True)
-total_corpus.data.drop('date', axis = 1, inplace= True)
+    ###
+    total_corpus.data.drop('text', axis = 1, inplace= True)
+    total_corpus.data.drop('date', axis = 1, inplace= True)
 
 
-train_y = total_corpus.data.loc[total_corpus.data.index.isin(total_corpus.train_rows)]['topic_label']
-train_x = total_corpus.data.loc[total_corpus.data.index.isin(total_corpus.train_rows)].drop('topic_label', axis = 1)
-test_y = total_corpus.data.loc[~total_corpus.data.index.isin(total_corpus.train_rows)]['topic_label']
-test_x = total_corpus.data.loc[~total_corpus.data.index.isin(total_corpus.train_rows)].drop('topic_label', axis = 1)
+    train_y = total_corpus.data.loc[total_corpus.data.index.isin(total_corpus.train_rows)]['topic_label']
+    train_x = total_corpus.data.loc[total_corpus.data.index.isin(total_corpus.train_rows)].drop('topic_label', axis = 1)
+    test_y = total_corpus.data.loc[~total_corpus.data.index.isin(total_corpus.train_rows)]['topic_label']
+    test_x = total_corpus.data.loc[~total_corpus.data.index.isin(total_corpus.train_rows)].drop('topic_label', axis = 1)
+
+    return train_x, train_y, test_x, test_y
+
+train_x, train_y, test_x, test_y = train_test()
 
 #I think the part of speech caused a few issues, but maybe not? SCIENCE.
     #After testing they don't add much value
@@ -262,7 +270,7 @@ for i in range(3):
 all_cms[0]
 all_cms[1]
 
-ConfusionMatrixDisplay(np.mean(all_cms, axis = 0), display_labels = clf.classes_)
+disp = ConfusionMatrixDisplay(np.mean(all_cms, axis = 0), display_labels = clf.classes_)
 disp.plot(xticks_rotation = 'vertical')
 plt.show()
 
@@ -274,3 +282,171 @@ all_cms[2]
 
 fig = px.histogram(full_data, x= 'topic_label')
 fig.show()
+
+
+
+##### K Nearest Neighbors
+    #Too much memory usage.
+def BruteForce_KNN(param_grid, train_x, train_y, test_x, test_y):
+    all_params = ParameterGrid(param_grid)
+    all_times = np.array([])
+    #Brute Force.
+    results = {
+        'params': [],
+        'f1': [],
+        'accuracy': []
+    }
+    
+    i = 0
+
+    for param in all_params:
+        lap = time.perf_counter()
+
+        results['params'].append(param)
+
+        neigh = KNeighborsClassifier(**param)
+        neigh.fit(train_x,train_y)
+        test_preds = neigh.predict(test_x)
+
+        results['accuracy'].append(accuracy_score(test_y, test_preds))
+        results['f1'].append(f1_score(test_y, test_preds , average = 'weighted'))
+
+        conf_mat = confusion_matrix(test_y, test_preds)
+
+        timer = time.perf_counter()
+
+        all_times = np.append(all_times, timer-lap)
+        
+
+        if i % 5 == 0:
+            print('Completion percent: ', round((i/ len(all_params))*100, 3), '%','\n', 'est time rem: ', round((np.mean(all_times) * (len(all_params)-i))/60, 2), ' mins')
+        i += 1
+    #print(results)
+    return pd.DataFrame(results), conf_mat
+
+
+scale = StandardScaler().fit(train_x)
+train_x_scaled = scale.transform(train_x)
+test_x_scaled = scale.transform(test_x)
+
+
+#Start with 50 neighbors
+    #Accuray = .646
+    #F1 = .637
+
+param_grid = {
+    'n_neighbors': list(range(5,110,25)),
+    'algorithm' :['ball_tree'],
+    'leaf_size' : [30],
+    'n_jobs' : [-1]
+}
+len(ParameterGrid(param_grid))
+
+kNN_tune_scale = BruteForce_KNN(param_grid, train_x_scaled, train_y, test_x_scaled, test_y)
+kNN_tune = BruteForce_KNN(param_grid, train_x, train_y, test_x, test_y)
+
+#kNN_tune_scale.to_json('knn_tune_scaled.json')
+#kNN_tune.to_json('knn_tune.json')
+
+kNN_tune_scale
+kNN_tune
+kNN_tune.loc[0,'params']
+kNN_tune.loc[5, 'params']
+
+neigh = KNeighborsClassifier(n_neighbors=100, algorithm='ball_tree', leaf_size= 100, n_jobs = -1)
+neigh.fit(train_x, train_y)
+test_preds = neigh.predict(test_x)
+accuracy_score(test_y, test_preds )
+f1_score(test_y, test_preds , average = 'weighted')
+
+param_grid = {
+    'n_neighbors': list(range(1,11)),
+    'algorithm' :['ball_tree'],
+    'leaf_size' : [30],
+    'n_jobs' : [-1]
+}
+kNN_tune2 = BruteForce_KNN(param_grid, train_x, train_y, test_x, test_y)
+kNN_tune2.to_json('knn_tune.json')
+param_grid = {
+    'n_neighbors': list(range(10,21)),
+    'algorithm' :['ball_tree'],
+    'leaf_size' : [30],
+    'n_jobs' : [-1]
+}
+kNN_tune2 = BruteForce_KNN(param_grid, train_x, train_y, test_x, test_y)
+kNN_tune2.to_json('knn_tune2.json')
+
+kNN_tune = pd.read_json('knn_tune.json')
+
+
+kNN_tune
+kNN_tune2
+
+
+param_grid = {
+    'n_neighbors': list(range(1,4)),
+    'algorithm' :['ball_tree'],
+    'leaf_size' : [30],
+    'n_jobs' : [-1]
+}
+
+
+for i in range(3):
+    print(kNN_tune.loc[i,'params'])
+
+all_cms = []
+knn_final_selection = kNN_tune.loc[0:2].copy()
+knn_final_selection
+
+for i in range(10):
+    train_x, train_y, test_x, test_y = train_test()
+
+    df, conf_mat = BruteForce_KNN(param_grid)
+
+    knn_final_selection.append(df, ignore_index=True)
+
+    all_cms.append(conf_mat)
+
+knn_final_selection.to_json('knn_tuned.json')
+
+knn_final_selection
+
+
+
+
+
+all_cms
+
+neigh = KNeighborsClassifier(n_neighbors=1, algorithm='ball_tree', leaf_size= 50, n_jobs = -1)
+neigh.fit(train_x, train_y)
+test_preds = neigh.predict(test_x)
+accuracy_score(test_y, test_preds )
+f1_score(test_y, test_preds , average = 'weighted')
+
+conf_mat = confusion_matrix(test_y, test_preds)
+
+disp = ConfusionMatrixDisplay(conf_mat, display_labels = neigh.classes_)
+disp.plot(xticks_rotation = 'vertical')
+
+
+plt.show()
+
+
+knn_final_selection
+
+rf_timer = time.perf_counter()
+clf = RandomForestClassifier(n_estimators=600, min_samples_split= 4, max_features='log2', n_jobs= -1)
+clf.fit(train_x, train_y)
+clf.predict(test_x)
+rf_timer = time.perf_counter() - rf_timer
+
+knn_timer = time.perf_counter()
+neigh = KNeighborsClassifier(n_neighbors=1, algorithm='ball_tree', leaf_size= 50, n_jobs = -1)
+neigh.fit(train_x, train_y)
+neigh.predict(test_x)
+knn_timer = time.perf_counter() - knn_timer
+
+print('rf: ', rf_timer)
+print('knn: ', knn_timer)
+
+knn_timer/rf_timer
