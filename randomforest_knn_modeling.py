@@ -38,7 +38,7 @@ def train_test():
 train_x, train_y, test_x, test_y = train_test()
 
 #I think the part of speech caused a few issues, but maybe not? SCIENCE.
-    #After testing they don't add much value
+    #After testing they don't add any value and might hurt the models
 
 #train_x_no_pos = train_x.drop(['CC','CD', 'DT','EX', 'FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP','RB','RBR','RBS','RP','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB', 'EXCEPT'], axis =1)
 #test_x_no_pos = test_x.drop(['CC','CD', 'DT','EX', 'FW','IN','JJ','JJR','JJS','LS','MD','NN','NNS','NNP','NNPS','PDT','POS','PRP','PRP','RB','RBR','RBS','RP','TO','UH','VB','VBD','VBG','VBN','VBP','VBZ','WDT','WP','WP$','WRB', 'EXCEPT'], axis =1)
@@ -409,14 +409,6 @@ for i in range(10):
 
 knn_final_selection.to_json('knn_tuned.json')
 
-knn_final_selection
-
-
-
-
-
-all_cms
-
 neigh = KNeighborsClassifier(n_neighbors=1, algorithm='ball_tree', leaf_size= 50, n_jobs = -1)
 neigh.fit(train_x, train_y)
 test_preds = neigh.predict(test_x)
@@ -430,9 +422,6 @@ disp.plot(xticks_rotation = 'vertical')
 
 
 plt.show()
-
-
-knn_final_selection
 
 rf_timer = time.perf_counter()
 clf = RandomForestClassifier(n_estimators=600, min_samples_split= 4, max_features='log2', n_jobs= -1)

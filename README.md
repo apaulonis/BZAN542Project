@@ -5,7 +5,7 @@ This repo contains an example of using Python for text classification, a common 
 ## Contacts
 
 - [Andrew Paulonis](mailto:apaulonis@gmail.com)
-- James McHale
+- [James McHale](mailto:mchalejd42@gmail.com)
 -
 - 
 -
@@ -30,8 +30,8 @@ Excellent results in predicting label values for the held-out test documents wer
 | -- | -- | -- |
 | TF-IDF uni-grams / SVC | 0.25 | 0.944 |
 | spaCy word vectors / SVC | 0.25 | 0.923 |
-| TF-IDF+ / random forest | 0.20 | ??? |
-| TF-IDF+ / KNN | 0.20 | ??? |
+| TF-IDF+ / random forest | 0.20 | 0.9147 |
+| TF-IDF+ / KNN | 0.20 | 0.7297 |
 
 ## Data Preprocessing
 
@@ -96,11 +96,61 @@ Word/document vectors with SVC did very well on the Reuters text classification,
 
 ## Random Forest Classification
 
-James put NLTK / random forest description here
+Our Random Forest Classifier is an implementation of [sk-learn RandomForestClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html) that is largely based on a [length adjusted TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) of stemmed words.  Some other features were created and evaluated, such as part of speech calculations and an attempt at implementing [NLTK's named entity extraction](https://www.nltk.org/book/ch07.html). A class was created to house and iterate the data structure.
+
+### Data Structure/ Processing
+
+The class used to gather and structure the data can be found in `wordprocessor.py` and consists of attributes and methods used to build the final data structure.  The `self.data` attribute holds the final data as a Pandas dataframe (in hindsight a sparse matrix would offer better performance).  
+
+Much of the code in this class would benefit from refactoring to improve performance and complexity. At a high level, the process used can be summarized as:
+
+1. Tokenize, Stem and remove stop words
+2. Establish training/ test split
+3. Generate terms from training set
+   - Parts of Speech
+   - Terms
+   - Named Entities
+4. Collect frequencies of terms
+
+One of the major reason's I started down the "manual" route of processing data, and eventually developed this class, was that it helped get a detailed understanding of *how* text mining works and some of the challenges behind the scenes.  If this task is done at scale prebuilt libraries, such as spacy, may offer better performance.  
+
+Manual impelementation allows for flexibility and extension of methodologies. 
+
+### Creating Models
+
+The code used to generate the Random Forest and KNN classifiers can be found in `randomforest_knn_modeling.py`. **Huge disclaimer:** I wrote this script with the intent to go back and clean it up, which never happened, so it's still kind of gross.  Trying to run the entire script directly may not work, or it may take a very long time.
+
+That being said, actually creating the models is very straight forward, and is no more complex than calling the `sk-learn` api.
+
+Perhaps the largest oversight with the manual implementation was not building in a way to cross-validate the data. The end result of this is that in order to tune parameters, we had to manually search, rather than use prebuilt methods (such as [GridSearchCV](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html)).  Most of this file is code that iterates over different parameters and train/ test splits.
+
+### Final Random Forest
+
+After tuning and attempting different models, we found that the best random forest results were obtained with the parameters:
+
+| Parameter |  Value |
+| --- | --- | 
+|n_estimators | 600 |
+|min_samples_split | 4 |
+|max_depth | None |
+|max_features | log2(n_features) |
+|min_samples_leaf | 1 |
+
+The final model accuracy was 91.6% and an F1 score of 0.9147. 
+
 
 ## K-Nearest Neighbors Classification
 
-James put NLTK / KNN description here
+The KNN impelementation uses [sk-learn's KNeighborsClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html?highlight=kneighbors#sklearn.neighbors.KNeighborsClassifier).  This method was applied to compare performance as more of a naive model.  Overall the computation time was about 10-15x as long as the random forest classifier and the model's performance was much worse. This caused us to move quickly away from attempting to improve this method.
+
+The best parameters we found were:
+| Parameter |  Value |
+| --- | --- | 
+|k | 1 |
+|algorithm | ball_tree |
+|metric | euclidean |
+
+The best performance we had was an accuracy of 73.5% and an F1 score of 0.7297.
 
 ## Python Environment Requirements
 
